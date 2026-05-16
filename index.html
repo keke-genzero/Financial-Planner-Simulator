@@ -3,18 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>女性專屬資產追蹤</title>
+    <title>退休財務規劃指南 / Financial Planning for Retirement Guide</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', 'PingFang HK', 'Microsoft JhengHei', sans-serif; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .active-tab { border-bottom: 3px solid #db2777; color: #db2777; font-weight: bold; }
-        input:focus { outline: 2px solid #f472b6; border-radius: 4px; }
-        .delete-btn { opacity: 0.5; transition: opacity 0.2s; }
+        input:focus { outline: 2px solid #f472b6; border-radius: 8px; }
+        .delete-btn { opacity: 0.3; transition: opacity 0.2s; }
         tr:hover .delete-btn { opacity: 1; }
+        .drag-handle { cursor: grab; color: #cbd5e1; display: flex; align-items: center; justify-content: center; }
+        .drag-handle:active { cursor: grabbing; }
+        .sortable-ghost { background: #fdf2f8; opacity: 0.5; }
         .card-gradient { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: #fce7f3; border-radius: 4px; }
         input[type=range]::-webkit-slider-thumb { height: 20px; width: 20px; border-radius: 50%; background: #db2777; cursor: pointer; -webkit-appearance: none; margin-top: -6px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
@@ -23,321 +30,389 @@
 <body class="bg-slate-50 text-slate-800">
 
 <div class="max-w-5xl mx-auto p-4 md:p-8">
-    <header class="mb-8 flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+    <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <div>
-            <h1 class="text-3xl font-bold text-slate-900">女性專屬資產追蹤</h1>
+            <h1 id="ui-title" class="text-3xl font-bold text-slate-900 tracking-tight">退休財務規劃指南</h1>
             <div class="flex items-center gap-2 mt-1 text-slate-500">
-                <input type="number" id="current-age" value="39" oninput="updateAllAgeDisplays(); updateGap();" 
-                    class="w-16 p-1 border-b-2 border-pink-400 text-pink-600 font-bold bg-transparent text-center focus:outline-none focus:border-pink-600 transition-all"
-                    title="修改目前年齡以調整全站試算">
-                <span class="text-sm font-medium">歲退休規劃與資產配置儀表板</span>
+                <input type="number" id="current-age" value="39" oninput="updateAllAgeDisplays(); refreshAllCalculations();" 
+                    class="w-12 p-1 border-b-2 border-pink-400 text-pink-600 font-bold bg-transparent text-center focus:outline-none focus:border-pink-600 transition-all">
+                <span id="ui-age-desc" class="text-sm font-medium">歲退休規劃與資產配置儀表板</span>
             </div>
         </div>
-        <div class="mt-4 md:mt-0 text-right space-y-2">
-            <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-emerald-100 transition-all flex items-center gap-2 w-full md:w-auto justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                導出 CSV (帶行時間戳)
-            </button>
-            <p id="last-updated" class="text-xs text-slate-400 italic">載入中...</p>
+        <div class="mt-4 md:mt-0 flex flex-col items-end gap-3 w-full md:w-auto">
+            <div class="flex gap-2">
+                <button onclick="toggleLanguage()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold transition-all border border-slate-200">
+                    🌐 EN / 中
+                </button>
+                <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-emerald-100 transition-all flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span id="ui-export-btn">導出 CSV</span>
+                </button>
+            </div>
+            <p id="last-updated" class="text-xs text-slate-400 italic font-mono">Loading...</p>
         </div>
     </header>
 
-    <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-2xl shadow-sm overflow-x-auto">
+    <nav class="flex border-b border-slate-200 mb-6 bg-white rounded-t-2xl shadow-sm overflow-x-auto no-scrollbar">
         <button onclick="openTab('networth')" id="tab-networth" class="whitespace-nowrap px-8 py-4 focus:outline-none active-tab transition-all">1. 淨資產實時清單</button>
         <button onclick="openTab('gap')" id="tab-gap" class="whitespace-nowrap px-8 py-4 focus:outline-none transition-all">2. 退休模擬分析</button>
         <button onclick="openTab('allocation')" id="tab-allocation" class="whitespace-nowrap px-8 py-4 focus:outline-none transition-all">3. 資產配置指引</button>
-    </div>
+    </nav>
 
+    <!-- TAB 1: Net Worth -->
     <div id="networth" class="tab-content active bg-white p-6 rounded-b-2xl shadow-xl border border-slate-100">
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex justify-between items-center mb-8">
             <div>
-                <h2 class="text-xl font-bold text-slate-800">資產明細管理</h2>
-                <p class="text-sm text-slate-500">提示：更新後請導出 CSV 以存檔至 Master List</p>
+                <h2 id="ui-asset-title" class="text-xl font-bold text-slate-800">資產明細管理</h2>
+                <p id="ui-asset-hint" class="text-sm text-slate-500 font-medium mt-1">💡 提示：分類與名稱會隨語言切換自動對應</p>
             </div>
-            <button onclick="addNewRow()" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-md transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                </svg>
-                新增項目
+            <button onclick="addNewRow()" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-md transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                <span id="ui-add-item">新增項目</span>
             </button>
         </div>
         
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse" id="asset-table">
+            <table class="w-full text-left border-separate border-spacing-y-2" id="asset-table">
                 <thead>
-                    <tr class="bg-slate-50 border-b-2 border-slate-100">
-                        <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">分類</th>
-                        <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">角色/用途</th>
-                        <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">項目名稱</th>
-                        <th class="py-4 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">價值 (HKD)</th>
+                    <tr class="text-slate-400">
+                        <th class="w-10 py-2 px-4"></th>
+                        <th id="ui-th-cat" class="py-2 px-4 text-[11px] font-bold uppercase tracking-widest">分類</th>
+                        <th id="ui-th-role" class="py-2 px-4 text-[11px] font-bold uppercase tracking-widest">角色/用途</th>
+                        <th id="ui-th-name" class="py-2 px-4 text-[11px] font-bold uppercase tracking-widest">機構/項目名稱</th>
+                        <th id="ui-th-val" class="py-2 px-4 text-right text-[11px] font-bold uppercase tracking-widest">價值 (HKD)</th>
                         <th class="w-10"></th>
                     </tr>
                 </thead>
-                <tbody id="asset-body" class="divide-y divide-slate-100">
-                    <script>
-                        const categories = ["1. 現金與流動性", "2. 強積金 (MPF)", "3. 儲蓄型保險", "4. 增長型投資", "5. 實物或特定資產", "其他"];
-                        function generateCategoryOptions(selected) {
-                            return categories.map(cat => `<option value="${cat}" ${cat === selected ? 'selected' : ''}>${cat}</option>`).join('');
-                        }
-                    </script>
-                </tbody>
+                <tbody id="asset-body"></tbody>
                 <tfoot>
-                    <tr class="bg-pink-50 font-bold text-lg text-pink-900">
-                        <td class="py-6 px-4 rounded-l-2xl" colspan="3">當前總資產 (PV)</td>
-                        <td class="text-right py-6 px-4" id="total-networth">HK$ 0</td>
-                        <td class="rounded-r-2xl"></td>
+                    <tr class="bg-slate-900 text-white shadow-lg">
+                        <td class="py-5 px-6 rounded-l-2xl" colspan="4" id="ui-total-label">當前總資產 (PV)</td>
+                        <td class="text-right py-5 px-6 font-mono text-xl font-bold" id="total-networth">HK$ 0</td>
+                        <td class="rounded-r-2xl px-4"></td>
                     </tr>
                 </tfoot>
             </table>
         </div>
+        <div class="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" id="ratio-container"></div>
     </div>
 
+    <!-- TAB 2: Simulation -->
     <div id="gap" class="tab-content bg-white p-8 rounded-b-2xl shadow-xl border border-slate-100">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div class="space-y-6">
                 <h3 class="text-lg font-bold border-b pb-3 text-slate-800 flex items-center gap-2">
                     <span class="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-sm">1</span>
-                    模擬變數設定
+                    <span id="ui-sim-vars">模擬變數設定</span>
                 </h3>
-                
-                <div class="bg-slate-50 p-6 rounded-2xl space-y-6">
-                    <div class="grid grid-cols-1 gap-4">
-                        <div>
-                            <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-widest">預計退休年齡</label>
-                            <input type="number" id="retire-age" value="65" oninput="updateGap()" class="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-pink-200 outline-none">
-                        </div>
-                    </div>
-
+                <div class="bg-slate-50 p-6 rounded-2xl space-y-6 border border-slate-100">
                     <div>
-                        <label class="flex justify-between text-xs text-slate-500 uppercase font-bold tracking-widest mb-3">
-                            預期投資年化回報率 (%)
-                            <span id="rate-display" class="text-pink-600 text-sm">5.5%</span>
+                        <label id="ui-retire-age-label" class="block text-[10px] text-slate-500 uppercase font-bold mb-2 tracking-widest">預計退休年齡</label>
+                        <input type="number" id="retire-age" value="65" oninput="refreshAllCalculations()" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-200 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="flex justify-between text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-3">
+                            <span id="ui-rate-label">預期投資年化回報率 (%)</span>
+                            <span id="rate-display" class="text-pink-600 font-mono text-sm">5.5%</span>
                         </label>
                         <input type="range" id="expected-rate" min="0" max="12" step="0.5" value="5.5" oninput="updateGapDisplay()" class="w-full">
                     </div>
-
                     <div>
-                        <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1">每月新增投資額 (HK$)</label>
-                        <input type="number" id="monthly-saving" value="10000" oninput="updateGap()" class="w-full p-2 border border-slate-200 rounded-lg">
+                        <label id="ui-monthly-save-label" class="block text-[10px] text-slate-500 uppercase font-bold mb-2 tracking-widest">每月新增投資額 (HK$)</label>
+                        <input type="number" id="monthly-saving" value="10000" oninput="refreshAllCalculations()" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-200 outline-none transition-all">
                     </div>
                 </div>
-
                 <div>
-                    <label class="block text-xs text-slate-500 uppercase font-bold tracking-widest mb-2">理想月生活費 (今日購買力)</label>
+                    <label id="ui-monthly-goal-label" class="block text-xs text-slate-500 uppercase font-bold tracking-widest mb-3">理想月生活費 (今日購買力)</label>
                     <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">HK$</span>
-                        <input type="number" id="monthly-goal" value="25000" oninput="updateGap()" class="w-full p-4 pl-12 border-2 border-pink-100 rounded-2xl text-2xl font-bold text-pink-600">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">HK$</span>
+                        <input type="number" id="monthly-goal" value="25000" oninput="refreshAllCalculations()" class="w-full p-5 pl-14 border-2 border-pink-100 rounded-2xl text-3xl font-black text-pink-600 focus:border-pink-400 outline-none transition-all">
                     </div>
-                    <p class="text-xs text-slate-400 mt-2 italic">考慮 3% 年通脹率與 4% 法則 (x300)。</p>
                 </div>
             </div>
-
-            <div class="card-gradient text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden flex flex-col justify-between">
-                <div class="absolute -right-8 -top-8 w-40 h-40 bg-pink-500/10 rounded-full blur-3xl"></div>
-                
-                <div class="space-y-6">
-                    <h3 class="text-pink-300 text-xs font-bold uppercase tracking-[0.2em]">目標模擬結果</h3>
+            <div class="card-gradient text-white p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col justify-between">
+                <div class="space-y-8 relative z-10">
+                    <h3 id="ui-sim-results-title" class="text-pink-400 text-xs font-bold uppercase tracking-[0.3em]">目標模擬結果</h3>
                     <div>
-                        <p class="text-slate-400 text-xs">退休首月所需開支 (抗通脹後)</p>
-                        <p class="text-2xl font-bold mt-1" id="inflated-monthly">HK$ 0</p>
+                        <p id="ui-res-inflated" class="text-slate-400 text-[11px] uppercase tracking-wider">退休首月所需開支</p>
+                        <p class="text-3xl font-bold mt-2 font-mono" id="inflated-monthly">HK$ 0</p>
                     </div>
                     <div>
-                        <p class="text-slate-400 text-xs uppercase tracking-widest">終極資產目標 (4% 法則)</p>
-                        <p class="text-4xl font-black text-amber-400 mt-2" id="target-total">HK$ 0</p>
+                        <p id="ui-res-target" class="text-slate-400 text-[11px] uppercase tracking-wider">終極資產目標</p>
+                        <p class="text-5xl font-black text-amber-400 mt-2 font-mono" id="target-total">HK$ 0</p>
                     </div>
-                    <div class="pt-6 border-t border-slate-700/50">
-                        <p class="text-slate-400 text-xs">預計屆時資產總值 (<span id="years-to-retire">--</span> 年後)</p>
-                        <p class="text-2xl font-bold text-emerald-400" id="projected-assets">HK$ 0</p>
+                    <div class="pt-8 border-t border-slate-700/50">
+                        <p class="text-slate-400 text-[11px] uppercase tracking-wider"><span id="ui-res-projected">預計屆時資產總值</span> (<span id="years-to-retire" class="text-white font-bold">--</span> <span id="ui-years-unit">年後</span>)</p>
+                        <p class="text-3xl font-bold text-emerald-400 mt-2 font-mono" id="projected-assets">HK$ 0</p>
                     </div>
                 </div>
-
-                <div class="mt-8 p-6 bg-white/5 rounded-2xl border border-white/10">
-                    <p class="text-slate-400 text-xs mb-1">財務缺口分析</p>
-                    <p class="text-3xl font-black" id="final-gap">計算中...</p>
-                    <div id="gap-analysis-msg" class="text-[10px] mt-3 text-slate-300 leading-relaxed"></div>
+                <div class="mt-10 p-6 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm relative z-10">
+                    <p id="ui-res-gap-label" class="text-slate-400 text-[10px] uppercase font-bold tracking-widest mb-1">財務缺口分析</p>
+                    <p class="text-3xl font-black font-mono" id="final-gap">計算中...</p>
+                    <div id="gap-analysis-msg" class="text-xs mt-3 text-slate-300 leading-relaxed font-medium"></div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- TAB 3: Allocation -->
     <div id="allocation" class="tab-content bg-white p-10 rounded-b-2xl shadow-xl border border-slate-100">
-        <div class="max-w-4xl mx-auto">
-            <div class="text-center mb-10">
-                <h2 class="text-2xl font-black text-slate-800 mb-2"><span id="guide-age-display">--</span> 歲建議資產分類與角色設定</h2>
-                <p id="life-stage-tag" class="text-pink-600 text-sm font-bold uppercase tracking-widest">載入中...</p>
-            </div>
-            
-            <div class="overflow-hidden border border-slate-100 rounded-2xl shadow-sm mb-10">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-2xl font-black text-slate-800 mb-2"><span id="guide-age-display">--</span> <span id="ui-guide-title-suffix">歲建議資產分類與角色設定</span></h2>
+            <p id="life-stage-tag" class="text-pink-600 text-sm font-bold uppercase tracking-[0.3em] mb-10">載入中...</p>
+            <div class="overflow-hidden border border-slate-100 rounded-3xl shadow-sm mb-10">
                 <table class="w-full text-sm text-left">
-                    <thead class="bg-slate-50 text-slate-500 font-bold">
+                    <thead class="bg-slate-50 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
                         <tr>
-                            <th class="px-6 py-4">分類名稱</th>
-                            <th class="px-6 py-4">建議比例</th>
-                            <th class="px-6 py-4">角色/用途設定 (Role)</th>
+                            <th id="ui-alloc-th-cat" class="px-8 py-5">分類名稱</th>
+                            <th id="ui-alloc-th-ratio" class="px-8 py-5">建議比例</th>
+                            <th id="ui-alloc-th-role" class="px-8 py-5">角色/用途設定</th>
                         </tr>
                     </thead>
-                    <tbody id="dynamic-guide-body" class="divide-y divide-slate-100">
-                        <!-- 由 JavaScript 動態生成 -->
-                    </tbody>
+                    <tbody id="dynamic-guide-body" class="divide-y divide-slate-50"></tbody>
                 </table>
             </div>
-
-            <div id="strategy-box" class="bg-amber-50 p-6 rounded-2xl border border-amber-100 text-sm text-amber-900 leading-relaxed">
-                <!-- 由 JavaScript 動態生成 -->
-            </div>
+            <div id="strategy-box" class="bg-amber-50 p-8 rounded-3xl border border-amber-100 text-sm text-amber-900 text-left leading-relaxed"></div>
         </div>
     </div>
-
-    <footer class="mt-12 text-center pb-10">
-        <p class="text-slate-400 text-[10px] tracking-[0.3em] uppercase">© 女性專屬資產追蹤 | 每行數據均帶時間戳導出</p>
-    </footer>
 </div>
 
 <script>
-    const allocationLogic = {
-        young: { // 35歲以下
-            tag: "財富積累期：激進增長",
-            ratios: ["10%", "25%", "5%", "55%", "5%"],
-            roles: ["緊急預備金 (3-6個月)", "複利核心，配置 100% 股票基金", "小額供款，建立儲蓄習慣", "主力增長，專注環球科技或指數 ETF", "高風險高回報嘗試"],
-            msg: "妳正處於複利威力最強大的階段。建議將超過一半的資產放在『增長型投資』，利用時間成本換取最大回報，不要讓過多現金被通脹蠶食。"
+    let currentLang = 'zh';
+    
+    // 定義核心數據對應關係，防止切換語言時名稱對不上
+    const CATEGORIES_MAP = [
+        { id: "cash", zh: "1. 現金與流動性", en: "1. Cash & Liquidity" },
+        { id: "mpf", zh: "2. 強積金 (MPF)", en: "2. MPF (Retirement Core)" },
+        { id: "savings", zh: "3. 儲蓄型保險", en: "3. Savings / Insurance" },
+        { id: "growth", zh: "4. 增長型投資", en: "4. Growth Investment" },
+        { id: "physical", zh: "5. 實物或特定資產", en: "5. Physical / Specific" },
+        { id: "other", zh: "其他", en: "Others" }
+    ];
+
+    const i18n = {
+        zh: {
+            title: "退休財務規劃指南",
+            ageDesc: "歲退休規劃與資產配置儀表板",
+            exportBtn: "導出 CSV (帶行時間戳)",
+            lastUpdate: "上次更新：",
+            tab1: "1. 淨資產實時清單",
+            tab2: "2. 退休模擬分析",
+            tab3: "3. 資產配置指引",
+            assetTitle: "資產明細管理",
+            assetHint: "💡 提示：分類與名稱會隨語言切換自動對應",
+            addItem: "新增項目",
+            thCat: "分類",
+            thRole: "角色/用途",
+            thName: "機構/項目名稱",
+            thVal: "價值 (HKD)",
+            totalLabel: "當前總資產 (PV)",
+            simVars: "模擬變數設定",
+            retireAge: "預計退休年齡",
+            rateLabel: "預期投資年化回報率 (%)",
+            monthlySave: "每月新增投資額 (HK$)",
+            monthlyGoal: "理想月生活費 (今日購買力)",
+            resTitle: "目標模擬結果",
+            resInflated: "退休首月所需開支 (抗通脹後)",
+            resTarget: "終極資產目標 (4% 法則)",
+            resProjected: "預計屆時資產總值",
+            yearsUnit: "年後",
+            resGap: "財務缺口分析",
+            guideTitle: "歲建議資產分類與角色設定",
+            allocThCat: "分類名稱",
+            allocThRatio: "建議比例",
+            allocThRole: "角色/用途設定 (Role)",
+            strategyTip: "策略提示：",
+            csvHeader: ["Snapshot", "Category", "Role", "Name", "Value"],
+            gapSuccess: "已達成目標！🎉",
+            gapFail: "尚欠 HK$ ",
+            gapAdvice: "提示：妳還有 {{years}} 年可以優化組合。",
+            gapSuccessAdvice: "目前儲蓄進度理想。建議開始考慮資產傳承規劃。"
         },
-        mid: { // 35-49歲
-            tag: "財富優化期：穩健增長",
-            ratios: ["10%", "30%", "10%", "45%", "5%"],
-            roles: ["緊急預備金 (6-12個月)", "穩健核心，增加環球分散配置", "稅務優化 (QDAP/TVC)", "抗通脹主力，美股或大盤指數", "多元化工具 (如黃金)"],
-            msg: "妳正處於財富增長的黃金十年。目前的重點在於『優化稅務』與『分散風險』。建議維持較高的股票配置，同時開始利用可扣稅工具為未來鋪路。"
-        },
-        preRetire: { // 50-59歲
-            tag: "財富鞏固期：風險防範",
-            ratios: ["15%", "35%", "20%", "25%", "5%"],
-            roles: ["充足現金流，應對不可見風險", "逐步降低波動，轉向平衡基金", "增加年金佔比，確保退休現金流", "保守增長，轉向高息股或債券 ETF", "資產傳承與保值"],
-            msg: "距離退休已不遠，重點應從『資產增長』轉向『風險管理』。建議逐步降低增長型投資的波動性，並增加能提供穩定現金流的工具（如年金或派息基金）。"
-        },
-        retire: { // 60歲以上
-            tag: "退休享受期：資本保值",
-            ratios: ["20%", "30%", "30%", "15%", "5%"],
-            roles: ["高度流動性，隨時提取生活費", "開始按需要提取，維持低風險組合", "主要現金流來源 (年金領取中)", "僅保留少量高回報資產以對沖通脹", "資產傳承規劃"],
-            msg: "現在是收穫期！確保有足夠的現金流支付未來 30 年的生活與醫療開支。資產應以『保值』為主，確保即使市場波動，妳的生活品質也不受影響。"
+        en: {
+            title: "Financial Planning for Retirement Guide",
+            ageDesc: "Retirement & Allocation Dashboard",
+            exportBtn: "Export CSV (with timestamps)",
+            lastUpdate: "Last update: ",
+            tab1: "1. Net Worth List",
+            tab2: "2. Retirement Simulation",
+            tab3: "3. Allocation Guide",
+            assetTitle: "Asset Management",
+            assetHint: "💡 Tip: Categories and names sync across languages",
+            addItem: "Add New Item",
+            thCat: "Category",
+            thRole: "Role/Purpose",
+            thName: "Institution Name",
+            thVal: "Value (HKD)",
+            totalLabel: "Total Net Worth (PV)",
+            simVars: "Simulation Variables",
+            retireAge: "Planned Retirement Age",
+            rateLabel: "Expected Annual Return (%)",
+            monthlySave: "Monthly Contribution (HK$)",
+            monthlyGoal: "Desired Monthly Living (Today's value)",
+            resTitle: "Simulation Results",
+            resInflated: "Projected Monthly Exp. (at retirement)",
+            resTarget: "Total Asset Target (4% Rule)",
+            resProjected: "Projected Assets",
+            yearsUnit: "years",
+            resGap: "Gap Analysis",
+            guideTitle: "Age - Allocation & Role Guide",
+            allocThCat: "Category Name",
+            allocThRatio: "Suggested %",
+            allocThRole: "Role / Purpose Setting",
+            strategyTip: "Strategy Tip:",
+            csvHeader: ["Snapshot", "Category", "Role", "Name", "Value"],
+            gapSuccess: "Goal Achieved! 🎉",
+            gapFail: "Gap: HK$ ",
+            gapAdvice: "Tip: You still have {{years}} years to optimize your portfolio.",
+            gapSuccessAdvice: "Your current pace is sufficient. Consider legacy planning."
         }
     };
 
-    function updateAllAgeDisplays() {
-        const ageInput = document.getElementById('current-age');
-        const age = parseInt(ageInput.value) || 39;
-        
-        // 更新基礎年齡顯示
-        const displays = ['guide-age-display', 'strategy-age-display'];
-        displays.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerText = age;
+    const allocationLogic = {
+        zh: {
+            young: { tag: "財富積累期：激進增長", roles: ["緊急預備金 (3-6月)", "複利核心 (100% 股票)", "小額供款，建立習慣", "主力增長 (指數/科技)", "高風險嘗試"], msg: "利用時間威力，建議將超過一半資產放在『增長型投資』。" },
+            mid: { tag: "財富優化期：穩健增長", roles: ["緊急預備金 (6-12月)", "穩健核心 (全球分散)", "稅務優化 (QDAP/TVC)", "抗通脹主力", "多元化工具"], msg: "黃金十年。重點在於『優化稅務』與『分散風險』。" },
+            preRetire: { tag: "財富鞏固期：風險防範", roles: ["充足現金流", "平衡基金", "年金佔比 (鎖定現金流)", "高息股/債券", "保值傳承"], msg: "重點應從『資產增長』轉向『風險管理』，確保本金安全。" },
+            retire: { tag: "退休享受期：資本保值", roles: ["高流動性預備", "低風險組合提取", "年金領取中", "少量抗通脹配置", "傳承規劃"], msg: "確保未來 30 年生活流，同時保持資產適度抗通脹。" }
+        },
+        en: {
+            young: { tag: "Accumulation: Aggressive", roles: ["Emergency (3-6mo)", "Compounding Core (Stocks)", "Build habit", "Primary Growth (Index/Tech)", "High risk trials"], msg: "Leverage time; allocate >50% to Growth Investments." },
+            mid: { tag: "Optimization: Steady", roles: ["Emergency (6-12mo)", "Global Core", "Tax Optimization", "Inflation Hedge", "Diversification"], msg: "Golden years. Focus on tax optimization and diversification." },
+            preRetire: { tag: "Consolidation: Risk Control", roles: ["Cash Flow Ready", "Balanced Funds", "Annuity Core", "High Yield/Bonds", "Legacy Preservation"], msg: "Shift focus from growth to risk management and capital safety." },
+            retire: { tag: "Golden Years: Preservation", roles: ["High Liquidity", "Low Risk Withdrawal", "Annuity Active", "Inflation Hedge", "Legacy Planning"], msg: "Secure cash flow for 30 years while staying inflation-hedged." }
+        }
+    };
+
+    function toggleLanguage() {
+        const rows = [];
+        // 在切換語言前先抓取目前輸入框的值
+        document.querySelectorAll('.asset-row').forEach(row => {
+            rows.push({
+                catId: row.querySelector('.cat-input').value, // 存 ID 而不是文字
+                role: row.querySelector('.role-input').value,
+                name: row.querySelector('.name-input').value,
+                val: row.querySelector('.val-input').value
+            });
         });
 
-        let config;
-        if (age < 35) config = allocationLogic.young;
-        else if (age < 50) config = allocationLogic.mid;
-        else if (age < 60) config = allocationLogic.preRetire;
-        else config = allocationLogic.retire;
-
-        // 更新標籤與訊息
-        document.getElementById('life-stage-tag').innerText = config.tag;
-        document.getElementById('strategy-box').innerHTML = `<strong>💡 策略提示：</strong> ${config.msg}`;
-
-        // 更新表格內容
-        const tableBody = document.getElementById('dynamic-guide-body');
-        const categories = ["1. 現金與流動性", "2. 強積金 (MPF)", "3. 儲蓄型保險", "4. 增長型投資", "5. 實物或特定資產"];
+        currentLang = currentLang === 'zh' ? 'en' : 'zh';
         
-        tableBody.innerHTML = categories.map((cat, i) => `
-            <tr>
-                <td class="px-6 py-4 font-bold text-pink-600">${cat}</td>
-                <td class="px-6 py-4 font-mono text-slate-700">${config.ratios[i]}</td>
-                <td class="px-6 py-4 text-slate-500 italic">${config.roles[i]}</td>
+        // 重新渲染框架
+        renderUI();
+        
+        // 重新填入數據 (此時下拉選單會顯示新語言文字)
+        const tbody = document.getElementById('asset-body');
+        tbody.innerHTML = "";
+        rows.forEach(r => addNewRow(r));
+    }
+
+    function renderUI() {
+        const t = i18n[currentLang];
+        document.getElementById('ui-title').innerText = t.title;
+        document.getElementById('ui-age-desc').innerText = t.ageDesc;
+        document.getElementById('ui-export-btn').innerText = t.exportBtn;
+        document.getElementById('tab-networth').innerText = t.tab1;
+        document.getElementById('tab-gap').innerText = t.tab2;
+        document.getElementById('tab-allocation').innerText = t.tab3;
+        document.getElementById('ui-asset-title').innerText = t.assetTitle;
+        document.getElementById('ui-asset-hint').innerText = t.assetHint;
+        document.getElementById('ui-add-item').innerText = t.addItem;
+        document.getElementById('ui-th-cat').innerText = t.thCat;
+        document.getElementById('ui-th-role').innerText = t.thRole;
+        document.getElementById('ui-th-name').innerText = t.thName;
+        document.getElementById('ui-th-val').innerText = t.thVal;
+        document.getElementById('ui-total-label').innerText = t.totalLabel;
+        document.getElementById('ui-sim-vars').innerText = t.simVars;
+        document.getElementById('ui-retire-age-label').innerText = t.retireAge;
+        document.getElementById('ui-rate-label').innerText = t.rateLabel;
+        document.getElementById('ui-monthly-save-label').innerText = t.monthlySave;
+        document.getElementById('ui-monthly-goal-label').innerText = t.monthlyGoal;
+        document.getElementById('ui-sim-results-title').innerText = t.resTitle;
+        document.getElementById('ui-res-inflated').innerText = t.resInflated;
+        document.getElementById('ui-res-target').innerText = t.resTarget;
+        document.getElementById('ui-res-projected').innerText = t.resProjected;
+        document.getElementById('ui-years-unit').innerText = t.yearsUnit;
+        document.getElementById('ui-res-gap-label').innerText = t.resGap;
+        document.getElementById('ui-guide-title-suffix').innerText = t.guideTitle;
+        document.getElementById('ui-alloc-th-cat').innerText = t.allocThCat;
+        document.getElementById('ui-alloc-th-ratio').innerText = t.allocThRatio;
+        document.getElementById('ui-alloc-th-role').innerText = t.allocThRole;
+
+        updateAllAgeDisplays();
+        refreshAllCalculations();
+        updateTimestamp();
+    }
+
+    function generateCategoryOptions(selectedId) {
+        return CATEGORIES_MAP.map(cat => 
+            `<option value="${cat.id}" ${cat.id === selectedId ? 'selected' : ''}>${cat[currentLang]}</option>`
+        ).join('');
+    }
+
+    function updateAllAgeDisplays() {
+        const age = parseInt(document.getElementById('current-age').value) || 39;
+        const t = i18n[currentLang];
+        document.getElementById('guide-age-display').innerText = age;
+
+        let config;
+        const logicSet = allocationLogic[currentLang];
+        if (age < 35) config = logicSet.young;
+        else if (age < 50) config = logicSet.mid;
+        else if (age < 60) config = logicSet.preRetire;
+        else config = logicSet.retire;
+
+        document.getElementById('life-stage-tag').innerText = config.tag;
+        document.getElementById('strategy-box').innerHTML = `<span class="text-amber-600 font-bold mr-2">${t.strategyTip}</span> ${config.msg}`;
+
+        const tableBody = document.getElementById('dynamic-guide-body');
+        const ratios = age < 35 ? ["10%", "25%", "5%", "55%", "5%"] : 
+                       age < 50 ? ["10%", "30%", "10%", "45%", "5%"] :
+                       age < 60 ? ["15%", "35%", "20%", "25%", "5%"] : ["20%", "30%", "30%", "15%", "5%"];
+        
+        tableBody.innerHTML = CATEGORIES_MAP.slice(0, 5).map((cat, i) => `
+            <tr class="hover:bg-slate-50">
+                <td class="px-8 py-5 font-bold text-pink-600">${cat[currentLang]}</td>
+                <td class="px-8 py-5 font-mono font-semibold">${ratios[i]}</td>
+                <td class="px-8 py-5 text-slate-500 italic font-medium">${config.roles[i]}</td>
             </tr>
         `).join('');
     }
 
-    window.onload = function() {
-        initDummyData();
-        updateTimestamp();
-        calculateNetWorth();
-        updateGap();
-        updateAllAgeDisplays();
+    function refreshAllCalculations() {
+        const netWorth = calculateNetWorthOnly();
+        updateNetWorthDisplay(netWorth);
+        updateRatioDisplayOnly(netWorth);
+        updateGapAnalysis(netWorth);
     }
 
-    function initDummyData() {
-        const dummyData = [
-            { cat: "1. 現金與流動性", role: "緊急預備金 (6個月)", name: "匯豐銀行儲蓄戶口", val: 150000 },
-            { cat: "2. 強積金 (MPF)", role: "退休核心 (環球股票)", name: "宏利 MPF 保留帳戶", val: 350000 },
-            { cat: "3. 儲蓄型保險", role: "稅務扣減 / 穩健回報", name: "友邦 QDAP 年金計劃", val: 120000 },
-            { cat: "4. 增長型投資", role: "財富增值 (抗通脹)", name: "美股組合 (VOO/QQQ)", val: 280000 }
-        ];
-        // Clear table first if any
-        document.getElementById('asset-body').innerHTML = "";
-        dummyData.forEach(data => addNewRow(data));
-    }
-
-    function updateTimestamp() {
-        const now = new Date();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const year = now.getFullYear();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        
-        // 設定為 MM/DD/YYYY 格式，並保留時間以利精確排序
-        const timeStr = `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
-        document.getElementById('last-updated').innerText = '上次數據檢查：' + timeStr;
-        return timeStr;
-    }
-
-    function openTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        document.querySelectorAll('.flex button').forEach(b => b.classList.remove('active-tab'));
-        document.getElementById(tabId).classList.add('active');
-        document.getElementById('tab-' + tabId).classList.add('active-tab');
-        if(tabId === 'gap' || tabId === 'allocation') {
-            updateGap();
-            updateAllAgeDisplays();
-        }
-    }
-
-    function calculateNetWorth() {
+    function calculateNetWorthOnly() {
         let total = 0;
         document.querySelectorAll('.val-input').forEach(input => {
             total += parseFloat(input.value) || 0;
         });
-        document.getElementById('total-networth').innerText = 'HK$ ' + total.toLocaleString();
         return total;
     }
 
-    function updateGapDisplay() {
-        const rate = document.getElementById('expected-rate').value;
-        document.getElementById('rate-display').innerText = rate + '%';
-        updateGap();
+    function updateNetWorthDisplay(total) {
+        document.getElementById('total-networth').innerText = 'HK$ ' + total.toLocaleString();
     }
 
-    function updateGap() {
-        const pv = calculateNetWorth();
+    function updateGapAnalysis(pv) {
         const curAge = parseInt(document.getElementById('current-age').value) || 39;
         const retAge = parseInt(document.getElementById('retire-age').value) || 65;
         const goal = parseFloat(document.getElementById('monthly-goal').value) || 0;
         const years = Math.max(0, retAge - curAge);
         const simRate = (parseFloat(document.getElementById('expected-rate').value) || 0) / 100;
         const monthlySaving = parseFloat(document.getElementById('monthly-saving').value) || 0;
+        const t = i18n[currentLang];
         
         document.getElementById('years-to-retire').innerText = years;
-
-        // Inflation adjustment (3%)
         const inflatedMonthly = goal * Math.pow(1.03, years);
         document.getElementById('inflated-monthly').innerText = 'HK$ ' + Math.round(inflatedMonthly).toLocaleString();
-        
-        // 4% Rule (x300)
         const target = inflatedMonthly * 300;
         document.getElementById('target-total').innerText = 'HK$ ' + Math.round(target).toLocaleString();
         
-        // Future Value Calculation
         let fv = pv * Math.pow(1 + simRate, years);
         if (simRate > 0 && years > 0) {
             fv += (monthlySaving * 12) * ((Math.pow(1 + simRate, years) - 1) / simRate);
@@ -346,61 +421,94 @@
         }
         document.getElementById('projected-assets').innerText = 'HK$ ' + Math.round(fv).toLocaleString();
         
-        // Gap Analysis Text
         const gap = target - fv;
         const gapEl = document.getElementById('final-gap');
         const msgEl = document.getElementById('gap-analysis-msg');
-        
         if(gap <= 0) {
-            gapEl.innerText = "已達成目標！🎉";
-            gapEl.className = "text-3xl font-black text-emerald-400";
-            msgEl.innerText = `以此回報率與儲蓄速度，妳的資產足以支撐理想的退休生活。建議開始考慮資產傳承規劃。`;
+            gapEl.innerText = t.gapSuccess;
+            gapEl.className = "text-3xl font-black text-emerald-400 font-mono";
+            msgEl.innerText = t.gapSuccessAdvice;
         } else {
-            gapEl.innerText = "尚欠 HK$ " + Math.round(gap).toLocaleString();
-            gapEl.className = "text-3xl font-black text-pink-400";
-            msgEl.innerText = `提示：嘗試將投資回報率調整為積極 (如 6% 以上)，或增加每月投資額。妳還有 ${years} 年可以優化。`;
+            gapEl.innerText = t.gapFail + Math.round(gap).toLocaleString();
+            gapEl.className = "text-3xl font-black text-pink-400 font-mono";
+            msgEl.innerText = t.gapAdvice.replace('{{years}}', years);
         }
     }
 
-    function addNewRow(data = { cat: "其他", role: "", name: "", val: 0 }) {
+    function updateTimestamp() {
+        const now = new Date();
+        const timeStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        document.getElementById('last-updated').innerText = i18n[currentLang].lastUpdate + timeStr;
+        return timeStr;
+    }
+
+    function updateRatioDisplayOnly(total) {
+        const container = document.getElementById('ratio-container');
+        const stats = {};
+        CATEGORIES_MAP.forEach(c => stats[c.id] = 0);
+
+        document.querySelectorAll('.asset-row').forEach(row => {
+            const catId = row.querySelector('.cat-input').value;
+            const val = parseFloat(row.querySelector('.val-input').value) || 0;
+            stats[catId] += val;
+        });
+
+        container.innerHTML = CATEGORIES_MAP.map(cat => {
+            const ratio = total > 0 ? (stats[cat.id] / total * 100).toFixed(1) : "0.0";
+            return `
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate mb-1">${cat[currentLang]}</p>
+                    <p class="text-xl font-black text-slate-700 font-mono">${ratio}<span class="text-xs text-slate-300 ml-0.5">%</span></p>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function addNewRow(data = { catId: "other", role: "", name: "", val: 0 }) {
         const tbody = document.getElementById('asset-body');
         const newRow = document.createElement('tr');
-        newRow.className = 'asset-row group';
+        newRow.className = 'asset-row group hover:shadow-md transition-all';
         newRow.innerHTML = `
-            <td class="py-4 px-4">
-                <select class="cat-input w-full border-none focus:ring-0 text-pink-600 font-semibold bg-transparent appearance-none cursor-pointer">
-                    ${generateCategoryOptions(data.cat)}
-                </select>
+            <td class="py-3 px-4 text-center drag-handle rounded-l-2xl bg-white border-y border-l border-slate-100">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 7a1 1 0 110-2h1a1 1 0 110 2H7zm0 4a1 1 0 110-2h1a1 1 0 110 2H7zm0 4a1 1 0 110-2h1a1 1 0 110 2H7zm5-8a1 1 0 110-2h1a1 1 0 110 2h-1zm0 4a1 1 0 110-2h1a1 1 0 110 2h-1zm0 4a1 1 0 110-2h1a1 1 0 110 2h-1z" /></svg>
             </td>
-            <td class="py-4 px-4"><input type="text" value="${data.role}" placeholder="用途..." class="role-input w-full bg-slate-50 p-1.5 rounded-lg border-none text-sm text-slate-600"></td>
-            <td class="py-4 px-4"><input type="text" value="${data.name}" placeholder="名稱..." class="name-input w-full border-none focus:ring-0"></td>
-            <td class="text-right py-4 px-4"><input type="number" value="${data.val}" oninput="calculateNetWorth(); updateGap();" class="val-input w-32 p-2 border border-slate-200 rounded-xl text-right font-mono focus:border-pink-300"></td>
-            <td class="py-4 px-2 text-center">
-                <button onclick="deleteRow(this)" class="delete-btn text-slate-300 hover:text-red-500 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
+            <td class="py-3 px-4 bg-white border-y border-slate-100">
+                <div class="bg-pink-50/50 px-3 py-2 rounded-xl">
+                    <select class="cat-input w-full border-none focus:ring-0 text-pink-600 font-bold bg-transparent cursor-pointer text-sm" onchange="refreshAllCalculations()">
+                        ${generateCategoryOptions(data.catId)}
+                    </select>
+                </div>
+            </td>
+            <td class="py-3 px-4 bg-white border-y border-slate-100">
+                <input type="text" value="${data.role}" class="role-input w-full bg-slate-50/50 p-2.5 rounded-xl border-none text-xs text-slate-500 font-medium" placeholder="...">
+            </td>
+            <td class="py-3 px-4 bg-white border-y border-slate-100">
+                <input type="text" value="${data.name}" class="name-input w-full border-none focus:ring-0 font-bold text-slate-700 text-sm" placeholder="...">
+            </td>
+            <td class="text-right py-3 px-4 bg-white border-y border-slate-100">
+                <div class="flex items-center justify-end gap-2 bg-slate-50/50 p-2 rounded-xl">
+                    <input type="number" value="${data.val}" oninput="refreshAllCalculations()" class="val-input w-32 bg-transparent border-none focus:ring-0 text-right font-mono font-bold text-slate-900">
+                </div>
+            </td>
+            <td class="py-3 px-4 text-center rounded-r-2xl bg-white border-y border-r border-slate-100">
+                <button onclick="this.closest('tr').remove(); refreshAllCalculations();" class="delete-btn text-slate-200 hover:text-red-500 p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                 </button>
             </td>
         `;
         tbody.appendChild(newRow);
-        calculateNetWorth();
-        updateGap();
-    }
-
-    function deleteRow(btn) {
-        btn.closest('tr').remove();
-        calculateNetWorth();
-        updateGap();
+        refreshAllCalculations();
     }
 
     function exportToCSV() {
         const timestamp = updateTimestamp();
+        const headers = i18n[currentLang].csvHeader;
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
-        csvContent += "快照日期,分類,角色/用途,項目名稱,價值 (HKD)\r\n";
+        csvContent += headers.join(",") + "\r\n";
 
         document.querySelectorAll('.asset-row').forEach(row => {
-            const category = row.querySelector('.cat-input').value;
+            const catId = row.querySelector('.cat-input').value;
+            const category = CATEGORIES_MAP.find(c => c.id === catId)[currentLang];
             const role = row.querySelector('.role-input').value;
             const name = row.querySelector('.name-input').value;
             const val = row.querySelector('.val-input').value;
@@ -410,10 +518,42 @@
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        const fileName = "Asset_MasterLog_" + timestamp.replace(/[/:\s]/g, "_") + ".csv";
-        link.setAttribute("download", fileName);
+        link.setAttribute("download", `Asset_Report_${timestamp.replace(/[/:\s]/g, "_")}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
+
+    function openTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab'));
+        document.getElementById(tabId).classList.add('active');
+        document.getElementById('tab-' + tabId).classList.add('active-tab');
+    }
+
+    function updateGapDisplay() {
+        document.getElementById('rate-display').innerText = document.getElementById('expected-rate').value + '%';
+        refreshAllCalculations();
+    }
+
+    window.onload = function() {
+        // 初始範例數據，使用 catId 確保切換不失效
+        const dummy = [
+            { catId: "cash", role: "Emergency Fund", name: "HSBC Savings", val: 150000 },
+            { catId: "mpf", role: "Retirement Core", name: "Manulife MPF", val: 350000 },
+            { catId: "savings", role: "Tax / Savings", name: "AIA QDAP", val: 120000 },
+            { catId: "growth", role: "Wealth Growth", name: "Stock Portfolio", val: 280000 }
+        ];
+        dummy.forEach(d => addNewRow(d));
+        renderUI();
+        
+        new Sortable(document.getElementById('asset-body'), {
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: () => refreshAllCalculations()
+        });
+    }
 </script>
+</body>
+</html>
